@@ -112,7 +112,7 @@ fn run() -> Result<()> {
     for dependency in dependencies {
         writer
             .serialize(dependency)
-            .with_context(|| format!("CSV serialization failed"))?;
+            .with_context(|| "CSV serialization failed".to_owned())?;
     }
 
     writer.flush()?;

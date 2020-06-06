@@ -27,4 +27,4 @@ To cover the majority of cases, `yalich` uses the following data flow:
 - Follow links in metadata to more data sources
 - Finally, apply user overrides for missing or incorrect data
 
-![yalich data flow](./img/data-flow.png)
+![yalich data flow](https://github.com/tommilligan/yalich/blob/master/img/data-flow.png)
