@@ -4,6 +4,8 @@ user_agent = "yalich-basic-example"
 manifests = [
   "examples/basic/pyproject.toml"
 ]
+[languages.python.overrides]
+"cheroot" = { license = "BSD-3-Clause" }
 
 [languages.rust]
 manifests = [
@@ -14,5 +16,3 @@ manifests = [
 manifests = [
   "examples/basic/package.json"
 ]
-# [languages.node.overrides]
-# "mutation-observer" = { license = "BSD" }

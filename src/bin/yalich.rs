@@ -4,7 +4,7 @@ use std::io::{self, Read};
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use log::info;
+use log::{error, info};
 use reqwest::blocking::ClientBuilder;
 use serde::de::DeserializeOwned;
 use structopt::StructOpt;
@@ -42,9 +42,7 @@ fn load_json_file<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
     serde_json::from_str(&buffer).with_context(|| format!("With path {}", path.display()))
 }
 
-fn main() -> Result<()> {
-    env_logger::init();
-
+fn run() -> Result<()> {
     let args = Args::from_args();
     let config: Config = load_toml_file(&args.config)?;
 
@@ -119,4 +117,12 @@ fn main() -> Result<()> {
 
     writer.flush()?;
     Ok(())
+}
+
+fn main() {
+    env_logger::init();
+
+    if let Err(error) = run() {
+        error!("{}", error)
+    }
 }

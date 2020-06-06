@@ -5,3 +5,5 @@ python = "^3.6"
 black = { version = "==18.9b0", optional = true }
 # This license will be loaded from Github
 jsonschema = "*"
+# This license will be overriden by user config
+cheroot = { version = "~=8.2", optional = true }
