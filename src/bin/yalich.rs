@@ -42,6 +42,35 @@ fn load_json_file<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
     serde_json::from_str(&buffer).with_context(|| format!("With path {}", path.display()))
 }
 
+fn load_pyproject(path: &PathBuf) -> Result<PyProject> {
+    load_toml_file(path)
+}
+
+fn load_cargo(path: &PathBuf) -> Result<Cargo> {
+    load_toml_file(path)
+}
+
+fn load_packagejson(path: &PathBuf) -> Result<PackageJson> {
+    load_json_file(path)
+}
+
+fn load_package_names<'a, T: DependencyNames>(
+    manifest_paths: &[PathBuf],
+    loader: impl Fn(&PathBuf) -> Result<T>,
+) -> Result<Vec<String>> {
+    let mut package_names: HashSet<String> = Default::default();
+    for manifest_path in manifest_paths {
+        info!("Loading manifest {}", manifest_path.display());
+        let manifest: T = loader(manifest_path)?;
+        for dependency_name in manifest.dependency_names() {
+            package_names.insert(dependency_name.to_owned());
+        }
+    }
+    let mut python_packages: Vec<String> = package_names.into_iter().collect();
+    python_packages.sort();
+    Ok(python_packages)
+}
+
 fn run() -> Result<()> {
     let args = Args::from_args();
     let config: Config = load_toml_file(&args.config)?;
@@ -62,38 +91,9 @@ fn run() -> Result<()> {
     let github_enricher = github::Enricher::new(&github);
 
     // Load package names
-    let mut python_packages: HashSet<String> = Default::default();
-    for pyproject_path in &config.languages.python.manifests {
-        info!("Loading manifest {}", pyproject_path.display());
-        let pyproject: PyProject = load_toml_file(pyproject_path)?;
-        for dependency_name in pyproject.tool.poetry.dependency_names() {
-            python_packages.insert(dependency_name.to_owned());
-        }
-    }
-    let mut python_packages: Vec<String> = python_packages.into_iter().collect();
-    python_packages.sort();
-
-    let mut rust_packages: HashSet<String> = Default::default();
-    for manifest_path in &config.languages.rust.manifests {
-        info!("Loading manifest {}", manifest_path.display());
-        let manifest: Cargo = load_toml_file(manifest_path)?;
-        for dependency_name in manifest.dependency_names() {
-            rust_packages.insert(dependency_name.to_owned());
-        }
-    }
-    let mut rust_packages: Vec<String> = rust_packages.into_iter().collect();
-    rust_packages.sort();
-
-    let mut node_packages: HashSet<String> = Default::default();
-    for manifest_path in &config.languages.node.manifests {
-        info!("Loading manifest {}", manifest_path.display());
-        let manifest: PackageJson = load_json_file(manifest_path)?;
-        for dependency_name in manifest.dependency_names() {
-            node_packages.insert(dependency_name.to_owned());
-        }
-    }
-    let mut node_packages: Vec<String> = node_packages.into_iter().collect();
-    node_packages.sort();
+    let python_packages = load_package_names(&config.languages.python.manifests, load_pyproject)?;
+    let rust_packages = load_package_names(&config.languages.rust.manifests, load_cargo)?;
+    let node_packages = load_package_names(&config.languages.node.manifests, load_packagejson)?;
 
     // Fetch metadata
     let dependencies: Vec<_> = python_packages
@@ -109,6 +109,7 @@ fn run() -> Result<()> {
         .map(|dependency| github_enricher.enrich(dependency))
         .collect::<Result<_>>()?;
 
+    // Send final dependencies to writer
     for dependency in dependencies {
         writer
             .serialize(dependency)
