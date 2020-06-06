@@ -23,10 +23,6 @@ use yalich::{
 #[derive(Deserialize, Debug, Default)]
 pub struct DependencyOverride {
     #[serde(default)]
-    name: Option<String>,
-    #[serde(default)]
-    url: Option<String>,
-    #[serde(default)]
     license: Option<String>,
 }
 
@@ -101,7 +97,16 @@ fn main() -> Result<()> {
     for pyproject_path in &config.languages.python.manifests {
         let pyproject: PyProject = load_toml_file(pyproject_path)?;
         for dependency_name in pyproject.tool.poetry.sorted_dependency_names() {
-            writer.serialize(Dependency::from(&pypi.fetch_dependency(dependency_name)?))?;
+            let raw_dependency = pypi.fetch_dependency(dependency_name)?;
+            let mut dependency = Dependency::from(&raw_dependency);
+            if let Some(dependency_override) =
+                config.languages.python.overrides.get(dependency.name)
+            {
+                if let Some(license) = &dependency_override.license {
+                    dependency.license = license;
+                };
+            };
+            writer.serialize(dependency)?;
 
             if args.debug {
                 break;

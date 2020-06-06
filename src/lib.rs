@@ -3,6 +3,7 @@ use serde_derive::Serialize;
 pub mod cargo;
 pub mod core;
 pub mod cratesio;
+pub mod github;
 pub mod npmjs;
 pub mod packagejson;
 pub mod pypi;
@@ -10,10 +11,10 @@ pub mod pyproject;
 
 #[derive(Serialize)]
 pub struct Dependency<'a> {
-    category: &'a str,
-    name: &'a str,
-    url: String,
-    license: &'a str,
+    pub category: &'a str,
+    pub name: &'a str,
+    pub url: String,
+    pub license: &'a str,
 }
 
 impl<'a> From<&'a pypi::Package> for Dependency<'a> {

@@ -10,6 +10,7 @@ pub struct Info {
     pub license: String,
     pub name: String,
     pub project_url: String,
+    pub home_page: String,
 }
 
 #[derive(Debug, Deserialize)]
