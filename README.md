@@ -1,5 +1,11 @@
 # yalich
 
+[![Crates.io](https://img.shields.io/crates/v/yalich)](https://crates.io/crates/yalich)
+[![CircleCI branch](https://img.shields.io/circleci/project/github/tommilligan/yalich/master.svg)](https://circleci.com/gh/tommilligan/yalich)
+[![GitHub](https://img.shields.io/github/license/tommilligan/yalich)](https://github.com/tommilligan/yalich/blob/master/LICENSE)
+
+Yet another license checker.
+
 ## Installation
 
 ```
@@ -27,4 +33,4 @@ To cover the majority of cases, `yalich` uses the following data flow:
 - Follow links in metadata to more data sources
 - Finally, apply user overrides for missing or incorrect data
 
-![yalich data flow](https://github.com/tommilligan/yalich/blob/master/img/data-flow.png)
+![yalich data flow](https://raw.githubusercontent.com/tommilligan/yalich/master/img/data-flow.png)
