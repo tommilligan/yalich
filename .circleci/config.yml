@@ -40,7 +40,7 @@ jobs:
       - restore_cache:
           keys:
             - build-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-v1
-      - run: make release
+      - run: make publish
       - save_cache:
           <<: *cargo_cache_paths
           key: build-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-v1
