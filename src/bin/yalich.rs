@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use reqwest::blocking::ClientBuilder;
 use serde::de::DeserializeOwned;
 use structopt::StructOpt;
@@ -60,11 +60,10 @@ fn main() -> Result<()> {
     for pyproject_path in &args.poetry_config {
         let pyproject: pyproject::PyProject = load_toml_file(pyproject_path)?;
         for dependency_name in pyproject.tool.poetry.sorted_dependency_names() {
-            wtr.serialize(Dependency::from(
-                pypi::get_package(&client, dependency_name)
-                    .with_context(|| "Could not fetch pypi package data.")?,
-            ))
-            .with_context(|| "Could not serialize dependency.")?;
+            wtr.serialize(Dependency::from(&pypi::get_package(
+                &client,
+                dependency_name,
+            )?))?;
         }
     }
 
@@ -72,11 +71,10 @@ fn main() -> Result<()> {
     for cargo_path in &args.cargo_config {
         let cargo: cargo::Cargo = load_toml_file(cargo_path)?;
         for dependency_name in cargo.dependency_names() {
-            wtr.serialize(Dependency::from(
-                cratesio::get_crate(&client, dependency_name)
-                    .with_context(|| "Could not fetch crate package data.")?,
-            ))
-            .with_context(|| "Could not serialize dependency.")?;
+            wtr.serialize(Dependency::from(&cratesio::get_crate(
+                &client,
+                dependency_name,
+            )?))?;
         }
     }
 
@@ -84,11 +82,10 @@ fn main() -> Result<()> {
     for package_json_path in &args.package_json {
         let package_json: packagejson::PackageJson = load_json_file(package_json_path)?;
         for dependency_name in package_json.dependency_names() {
-            wtr.serialize(Dependency::from(
-                npmjs::get_package(&client, dependency_name)
-                    .with_context(|| "Could not fetch node package data.")?,
-            ))
-            .with_context(|| "Could not serialize dependency.")?;
+            wtr.serialize(Dependency::from(&npmjs::get_package(
+                &client,
+                dependency_name,
+            )?))?;
         }
     }
 

@@ -11,48 +11,48 @@ pub mod pyproject;
 #[derive(Serialize)]
 pub struct Dependency<'a> {
     category: &'a str,
-    name: String,
+    name: &'a str,
     url: String,
-    license: String,
+    license: &'a str,
 }
 
-impl<'a> From<pypi::Package> for Dependency<'a> {
-    fn from(package: pypi::Package) -> Self {
+impl<'a> From<&'a pypi::Package> for Dependency<'a> {
+    fn from(package: &'a pypi::Package) -> Self {
         Dependency {
             category: "python",
-            name: package.info.name,
-            url: package.info.project_url,
-            license: package.info.license,
+            name: &package.info.name,
+            url: package.info.project_url.clone(),
+            license: &package.info.license,
         }
     }
 }
 
-impl<'a> From<cratesio::CrateResource> for Dependency<'a> {
-    fn from(crate_resource: cratesio::CrateResource) -> Self {
+impl<'a> From<&'a cratesio::CrateResource> for Dependency<'a> {
+    fn from(crate_resource: &'a cratesio::CrateResource) -> Self {
         let cratesio::CrateResource { crate_, versions } = crate_resource;
-        let url = crate_.url();
         Dependency {
             category: "rust",
-            name: crate_.name,
-            url,
-            license: versions[0].license.clone(),
+            name: &crate_.name,
+            url: crate_.url(),
+            license: &versions
+                .get(0)
+                .expect("Rust crate must have at least one version.")
+                .license,
         }
     }
 }
 
-impl<'a> From<npmjs::Package> for Dependency<'a> {
-    fn from(package: npmjs::Package) -> Self {
-        let url = package.url();
-        let name = package.name.clone();
-        let version = package.latest_version().to_owned();
+impl<'a> From<&'a npmjs::Package> for Dependency<'a> {
+    fn from(package: &'a npmjs::Package) -> Self {
+        let version = package.latest_version();
         let license = version
             .get_license()
-            .map(|license| license.name().to_owned())
-            .unwrap_or_else(|| String::from("unknown"));
+            .map(|license| license.name())
+            .unwrap_or_else(|| "unknown");
         Dependency {
             category: "node",
-            name,
-            url,
+            name: &package.name,
+            url: package.url(),
             license,
         }
     }
