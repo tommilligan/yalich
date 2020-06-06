@@ -4,6 +4,7 @@ use std::io::{self, Read};
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use log::info;
 use reqwest::blocking::ClientBuilder;
 use serde::de::DeserializeOwned;
 use structopt::StructOpt;
@@ -33,17 +34,17 @@ fn load_file(path: &PathBuf) -> Result<String> {
 
 fn load_toml_file<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
     let buffer = load_file(path)?;
-    let toml = toml::from_str(&buffer)?;
-    Ok(toml)
+    toml::from_str(&buffer).with_context(|| format!("With path {}", path.display()))
 }
 
 fn load_json_file<T: DeserializeOwned>(path: &PathBuf) -> Result<T> {
     let buffer = load_file(path)?;
-    let toml = serde_json::from_str(&buffer)?;
-    Ok(toml)
+    serde_json::from_str(&buffer).with_context(|| format!("With path {}", path.display()))
 }
 
 fn main() -> Result<()> {
+    env_logger::init();
+
     let args = Args::from_args();
     let config: Config = load_toml_file(&args.config)?;
 
@@ -65,6 +66,7 @@ fn main() -> Result<()> {
     // Load package names
     let mut python_packages: HashSet<String> = Default::default();
     for pyproject_path in &config.languages.python.manifests {
+        info!("Loading manifest {}", pyproject_path.display());
         let pyproject: PyProject = load_toml_file(pyproject_path)?;
         for dependency_name in pyproject.tool.poetry.dependency_names() {
             python_packages.insert(dependency_name.to_owned());
@@ -75,6 +77,7 @@ fn main() -> Result<()> {
 
     let mut rust_packages: HashSet<String> = Default::default();
     for manifest_path in &config.languages.rust.manifests {
+        info!("Loading manifest {}", manifest_path.display());
         let manifest: Cargo = load_toml_file(manifest_path)?;
         for dependency_name in manifest.dependency_names() {
             rust_packages.insert(dependency_name.to_owned());
@@ -85,6 +88,7 @@ fn main() -> Result<()> {
 
     let mut node_packages: HashSet<String> = Default::default();
     for manifest_path in &config.languages.node.manifests {
+        info!("Loading manifest {}", manifest_path.display());
         let manifest: PackageJson = load_json_file(manifest_path)?;
         for dependency_name in manifest.dependency_names() {
             node_packages.insert(dependency_name.to_owned());

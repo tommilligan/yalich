@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use log::warn;
 use reqwest::blocking::Client;
 use serde_derive::Deserialize;
 use url::Url;
@@ -49,7 +50,16 @@ impl<'a> Github<'a> {
 }
 
 /// Validate and extract repo from homepage url.
-fn homepage_to_repo(homepage: &str) -> Option<(&str, &str)> {
+fn homepage_to_repo(mut homepage: &str) -> Option<(&str, &str)> {
+    homepage = homepage
+        .split('#')
+        .next()
+        .expect("Split always results in at least one part.");
+
+    if homepage.ends_with('/') {
+        homepage = &homepage[..homepage.len() - 1]
+    };
+
     if !homepage.contains("github.com") {
         return None;
     };
@@ -78,6 +88,7 @@ impl<'a> Enricher<'a> {
         if dependency.license.is_none() {
             if let Some(homepage) = &dependency.homepage {
                 if let Some((organisation, repo)) = homepage_to_repo(&homepage) {
+                    warn!("Falling back to Github for {}/{}", organisation, repo);
                     let repo = self.github.repo(organisation, repo)?;
                     if let Some(repo_license) = repo.license {
                         dependency.license = Some(repo_license.name)
