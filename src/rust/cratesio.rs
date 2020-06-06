@@ -7,12 +7,15 @@ use crate::core::FetchDependency;
 
 #[derive(Debug, Deserialize)]
 pub struct Version {
-    pub license: String,
+    #[serde(default)]
+    pub license: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Crate {
     pub name: String,
+    #[serde(default)]
+    pub homepage: Option<String>,
 }
 
 impl Crate {

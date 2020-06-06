@@ -14,5 +14,5 @@ manifests = [
 manifests = [
   "examples/basic/package.json"
 ]
-[languages.node.overrides]
-"mutation-observer" = { license = "BSD" }
+# [languages.node.overrides]
+# "mutation-observer" = { license = "BSD" }

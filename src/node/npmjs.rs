@@ -50,6 +50,8 @@ pub struct Version {
     pub license: Option<OneOrMany>,
     #[serde(default)]
     pub licenses: Option<OneOrMany>,
+    #[serde(default)]
+    pub homepage: Option<String>,
 }
 
 impl Version {

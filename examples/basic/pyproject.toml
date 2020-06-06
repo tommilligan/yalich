@@ -1,4 +1,7 @@
 [tool.poetry.dependencies]
 python = "^3.6"
 
+# This license will be loaded from PyPI metadata
 black = { version = "==18.9b0", optional = true }
+# This license will be loaded from Github
+jsonschema = "*"

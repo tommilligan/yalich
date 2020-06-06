@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::PathBuf;
@@ -6,48 +6,15 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use reqwest::blocking::ClientBuilder;
 use serde::de::DeserializeOwned;
-use serde_derive::Deserialize;
 use structopt::StructOpt;
 
 use yalich::{
-    cargo::Cargo,
-    core::{DependencyNames, FetchDependency},
-    cratesio::CratesIo,
-    npmjs::NpmJs,
-    packagejson::PackageJson,
-    pypi::PyPI,
-    pyproject::PyProject,
-    Dependency,
+    core::{Config, DependencyNames, Resolve},
+    github::{self, Github},
+    node::{self, npmjs::NpmJs, packagejson::PackageJson},
+    python::{self, pypi::PyPI, pyproject::PyProject},
+    rust::{self, cargo::Cargo, cratesio::CratesIo},
 };
-
-#[derive(Deserialize, Debug, Default)]
-pub struct DependencyOverride {
-    #[serde(default)]
-    license: Option<String>,
-}
-
-#[derive(Deserialize, Debug, Default)]
-struct Language {
-    manifests: Vec<PathBuf>,
-    #[serde(default)]
-    overrides: HashMap<String, DependencyOverride>,
-}
-
-#[derive(Deserialize, Debug)]
-struct Languages {
-    #[serde(default)]
-    python: Language,
-    #[serde(default)]
-    rust: Language,
-    #[serde(default)]
-    node: Language,
-}
-
-#[derive(Deserialize, Debug)]
-struct Config {
-    languages: Languages,
-    user_agent: String,
-}
 
 /// yalich collects license metadata from a variety of dependencies.
 #[derive(Debug, StructOpt)]
@@ -55,10 +22,6 @@ pub struct Args {
     #[structopt(long, parse(from_os_str))]
     /// Path to config file.
     pub config: PathBuf,
-
-    #[structopt(long)]
-    /// Stop after processing one dependency of each manifest.
-    pub debug: bool,
 }
 
 fn load_file(path: &PathBuf) -> Result<String> {
@@ -84,60 +47,70 @@ fn main() -> Result<()> {
     let args = Args::from_args();
     let config: Config = load_toml_file(&args.config)?;
 
-    // Setup API clients
     let client = ClientBuilder::new().user_agent(config.user_agent).build()?;
+    let mut writer = csv::Writer::from_writer(io::stdout());
+
+    // Setup API clients
     let cratesio = CratesIo::new(&client);
     let pypi = PyPI::new(&client);
     let npmjs = NpmJs::new(&client);
+    let github = Github::new(&client);
 
-    // Output to stream to
-    let mut writer = csv::Writer::from_writer(io::stdout());
+    // Setup package name resolvers
+    let python_resolver = python::Resolver::new(&config.languages.python.overrides, &pypi);
+    let rust_resolver = rust::Resolver::new(&config.languages.rust.overrides, &cratesio);
+    let node_resolver = node::Resolver::new(&config.languages.node.overrides, &npmjs);
+    let github_enricher = github::Enricher::new(&github);
 
-    // Load python dependencies and fetch metadata
+    // Load package names
+    let mut python_packages: HashSet<String> = Default::default();
     for pyproject_path in &config.languages.python.manifests {
         let pyproject: PyProject = load_toml_file(pyproject_path)?;
-        for dependency_name in pyproject.tool.poetry.sorted_dependency_names() {
-            let raw_dependency = pypi.fetch_dependency(dependency_name)?;
-            let mut dependency = Dependency::from(&raw_dependency);
-            if let Some(dependency_override) =
-                config.languages.python.overrides.get(dependency.name)
-            {
-                if let Some(license) = &dependency_override.license {
-                    dependency.license = license;
-                };
-            };
-            writer.serialize(dependency)?;
-
-            if args.debug {
-                break;
-            }
+        for dependency_name in pyproject.tool.poetry.dependency_names() {
+            python_packages.insert(dependency_name.to_owned());
         }
     }
+    let mut python_packages: Vec<String> = python_packages.into_iter().collect();
+    python_packages.sort();
 
-    // Load rust dependencies and fetch metadata
-    for cargo_path in &config.languages.rust.manifests {
-        let cargo: Cargo = load_toml_file(cargo_path)?;
-        for dependency_name in cargo.sorted_dependency_names() {
-            writer.serialize(Dependency::from(
-                &cratesio.fetch_dependency(dependency_name)?,
-            ))?;
-
-            if args.debug {
-                break;
-            }
+    let mut rust_packages: HashSet<String> = Default::default();
+    for manifest_path in &config.languages.rust.manifests {
+        let manifest: Cargo = load_toml_file(manifest_path)?;
+        for dependency_name in manifest.dependency_names() {
+            rust_packages.insert(dependency_name.to_owned());
         }
     }
+    let mut rust_packages: Vec<String> = rust_packages.into_iter().collect();
+    rust_packages.sort();
 
-    // Load npm dependencies and fetch metadata
-    for package_json_path in &config.languages.node.manifests {
-        let package_json: PackageJson = load_json_file(package_json_path)?;
-        for dependency_name in package_json.sorted_dependency_names() {
-            writer.serialize(Dependency::from(&npmjs.fetch_dependency(dependency_name)?))?;
-
-            if args.debug {
-                break;
-            }
+    let mut node_packages: HashSet<String> = Default::default();
+    for manifest_path in &config.languages.node.manifests {
+        let manifest: PackageJson = load_json_file(manifest_path)?;
+        for dependency_name in manifest.dependency_names() {
+            node_packages.insert(dependency_name.to_owned());
         }
+    }
+    let mut node_packages: Vec<String> = node_packages.into_iter().collect();
+    node_packages.sort();
+
+    // Fetch metadata
+    let dependencies: Vec<_> = python_packages
+        .iter()
+        .map(|name| python_resolver.resolve(name))
+        .chain(rust_packages.iter().map(|name| rust_resolver.resolve(name)))
+        .chain(node_packages.iter().map(|name| node_resolver.resolve(name)))
+        .collect::<Result<_>>()?;
+
+    // Fallback to Github if required after first pass
+    let dependencies: Vec<_> = dependencies
+        .into_iter()
+        .map(|dependency| github_enricher.enrich(dependency))
+        .collect::<Result<_>>()?;
+
+    for dependency in dependencies {
+        writer
+            .serialize(dependency)
+            .with_context(|| format!("CSV serialization failed"))?;
     }
 
     writer.flush()?;

@@ -1,7 +1,9 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use reqwest::blocking::Client;
 use serde_derive::Deserialize;
 use url::Url;
+
+use crate::core::Dependency;
 
 #[derive(Debug, Deserialize)]
 pub struct License {
@@ -24,29 +26,65 @@ impl<'a> Github<'a> {
         Self { client }
     }
 
-    pub fn fetch_repo_from_homepage(&self, html_url: &str) -> Result<Repo> {
+    pub fn repo(&self, organisation: &str, repo: &str) -> Result<Repo> {
         // Validate and extract API url from homepage
-        if !html_url.contains("github.com") {
-            return Err(anyhow!("Homepage {} was not for Github", html_url));
-        };
-        let html_url_parts: Vec<_> = html_url.rsplitn(3, '/').collect();
-        let organisation = html_url_parts
-            .get(1)
-            .with_context(|| format!("Homepage {} did not have an organisation.", html_url))?;
-        let repo = html_url_parts
-            .get(0)
-            .with_context(|| format!("Homepage {} did not have a repo name.", html_url))?;
         let url = Url::parse(&format!(
             "https://api.github.com/repos/{}/{}",
             organisation, repo,
         ))
-        .with_context(|| format!("Invalid URL for Github API '{}'.", html_url))?;
+        .with_context(|| format!("Invalid URL for Github API '{}/{}'.", organisation, repo))?;
 
         self.client
             .get(url)
             .send()
-            .with_context(|| format!("Github request for '{}' failed.", html_url))?
+            .with_context(|| format!("Github request for '{}/{}' failed.", organisation, repo))?
             .json()
-            .with_context(|| format!("JSON deserialization for '{}' failed.", html_url))
+            .with_context(|| {
+                format!(
+                    "JSON deserialization for '{}/{}' failed.",
+                    organisation, repo
+                )
+            })
+    }
+}
+
+/// Validate and extract repo from homepage url.
+fn homepage_to_repo(homepage: &str) -> Option<(&str, &str)> {
+    if !homepage.contains("github.com") {
+        return None;
+    };
+
+    let html_url_parts: Vec<_> = homepage.rsplitn(3, '/').collect();
+    if let Some(repo) = html_url_parts.get(0) {
+        if let Some(organisation) = html_url_parts.get(1) {
+            return Some((organisation, repo));
+        }
+    }
+
+    None
+}
+
+pub struct Enricher<'a> {
+    github: &'a Github<'a>,
+}
+
+impl<'a> Enricher<'a> {
+    pub fn new(github: &'a Github) -> Self {
+        Self { github }
+    }
+
+    pub fn enrich(&self, mut dependency: Dependency) -> Result<Dependency> {
+        // Fallback to Github if PyPI doesn't have license
+        if dependency.license.is_none() {
+            if let Some(homepage) = &dependency.homepage {
+                if let Some((organisation, repo)) = homepage_to_repo(&homepage) {
+                    let repo = self.github.repo(organisation, repo)?;
+                    if let Some(repo_license) = repo.license {
+                        dependency.license = Some(repo_license.name)
+                    }
+                }
+            }
+        };
+        Ok(dependency)
     }
 }
