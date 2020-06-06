@@ -10,7 +10,14 @@ use serde_derive::Deserialize;
 use structopt::StructOpt;
 
 use yalich::{
-    cargo, core::DependencyNames, cratesio, npmjs, packagejson, pypi, pyproject, Dependency,
+    cargo::Cargo,
+    core::{DependencyNames, FetchDependency},
+    cratesio::CratesIo,
+    npmjs::NpmJs,
+    packagejson::PackageJson,
+    pypi::PyPI,
+    pyproject::PyProject,
+    Dependency,
 };
 
 #[derive(Deserialize, Debug, Default)]
@@ -81,17 +88,20 @@ fn main() -> Result<()> {
     let args = Args::from_args();
     let config: Config = load_toml_file(&args.config)?;
 
+    // Setup API clients
     let client = ClientBuilder::new().user_agent(config.user_agent).build()?;
-    let mut wtr = csv::Writer::from_writer(io::stdout());
+    let cratesio = CratesIo::new(&client);
+    let pypi = PyPI::new(&client);
+    let npmjs = NpmJs::new(&client);
+
+    // Output to stream to
+    let mut writer = csv::Writer::from_writer(io::stdout());
 
     // Load python dependencies and fetch metadata
     for pyproject_path in &config.languages.python.manifests {
-        let pyproject: pyproject::PyProject = load_toml_file(pyproject_path)?;
+        let pyproject: PyProject = load_toml_file(pyproject_path)?;
         for dependency_name in pyproject.tool.poetry.sorted_dependency_names() {
-            wtr.serialize(Dependency::from(&pypi::get_package(
-                &client,
-                dependency_name,
-            )?))?;
+            writer.serialize(Dependency::from(&pypi.fetch_dependency(dependency_name)?))?;
 
             if args.debug {
                 break;
@@ -101,12 +111,11 @@ fn main() -> Result<()> {
 
     // Load rust dependencies and fetch metadata
     for cargo_path in &config.languages.rust.manifests {
-        let cargo: cargo::Cargo = load_toml_file(cargo_path)?;
-        for dependency_name in cargo.dependency_names() {
-            wtr.serialize(Dependency::from(&cratesio::get_crate(
-                &client,
-                dependency_name,
-            )?))?;
+        let cargo: Cargo = load_toml_file(cargo_path)?;
+        for dependency_name in cargo.sorted_dependency_names() {
+            writer.serialize(Dependency::from(
+                &cratesio.fetch_dependency(dependency_name)?,
+            ))?;
 
             if args.debug {
                 break;
@@ -116,12 +125,9 @@ fn main() -> Result<()> {
 
     // Load npm dependencies and fetch metadata
     for package_json_path in &config.languages.node.manifests {
-        let package_json: packagejson::PackageJson = load_json_file(package_json_path)?;
-        for dependency_name in package_json.dependency_names() {
-            wtr.serialize(Dependency::from(&npmjs::get_package(
-                &client,
-                dependency_name,
-            )?))?;
+        let package_json: PackageJson = load_json_file(package_json_path)?;
+        for dependency_name in package_json.sorted_dependency_names() {
+            writer.serialize(Dependency::from(&npmjs.fetch_dependency(dependency_name)?))?;
 
             if args.debug {
                 break;
@@ -129,6 +135,6 @@ fn main() -> Result<()> {
         }
     }
 
-    wtr.flush()?;
+    writer.flush()?;
     Ok(())
 }

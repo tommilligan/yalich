@@ -3,6 +3,8 @@ use reqwest::blocking::Client;
 use serde_derive::Deserialize;
 use url::Url;
 
+use crate::core::FetchDependency;
+
 #[derive(Debug, Deserialize)]
 pub struct Version {
     pub license: String,
@@ -26,13 +28,25 @@ pub struct CrateResource {
     pub versions: Vec<Version>,
 }
 
-pub fn get_crate(client: &Client, crate_name: &str) -> Result<CrateResource> {
-    let url = Url::parse(&format!("https://crates.io/api/v1/crates/{}", crate_name))
-        .with_context(|| format!("Invalid URL for rust crate '{}'.", crate_name))?;
-    client
-        .get(url)
-        .send()
-        .with_context(|| format!("Crates.io request for '{}' failed.", crate_name))?
-        .json()
-        .with_context(|| format!("JSON deserialization for '{}' failed.", crate_name))
+pub struct CratesIo<'a> {
+    client: &'a Client,
+}
+
+impl<'a> CratesIo<'a> {
+    pub fn new(client: &'a Client) -> Self {
+        Self { client }
+    }
+}
+
+impl<'a> FetchDependency<CrateResource> for CratesIo<'a> {
+    fn fetch_dependency(&self, crate_name: &str) -> Result<CrateResource> {
+        let url = Url::parse(&format!("https://crates.io/api/v1/crates/{}", crate_name))
+            .with_context(|| format!("Invalid URL for rust crate '{}'.", crate_name))?;
+        self.client
+            .get(url)
+            .send()
+            .with_context(|| format!("Crates.io request for '{}' failed.", crate_name))?
+            .json()
+            .with_context(|| format!("JSON deserialization for '{}' failed.", crate_name))
+    }
 }

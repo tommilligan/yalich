@@ -5,6 +5,8 @@ use reqwest::blocking::Client;
 use serde_derive::Deserialize;
 use url::Url;
 
+use crate::core::FetchDependency;
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct LicenseDetails {
     r#type: String,
@@ -87,18 +89,32 @@ impl Package {
     }
 }
 
-pub fn get_package(client: &Client, package_name: &str) -> Result<Package> {
-    let url = Url::parse(&format!("https://registry.npmjs.org/{}", package_name))
-        .with_context(|| format!("Invalid URL for npm package '{}'.", package_name))?;
-    let mut package: Package = client
-        .get(url)
-        .send()
-        .with_context(|| format!("NPM request for '{}' failed.", package_name))?
-        .json()
-        .with_context(|| format!("JSON deserialization for '{}' failed.", package_name))?;
+pub struct NpmJs<'a> {
+    client: &'a Client,
+}
 
-    if package.name.is_empty() {
-        package.name = package_name.to_owned();
+impl<'a> NpmJs<'a> {
+    pub fn new(client: &'a Client) -> Self {
+        Self { client }
     }
-    Ok(package)
+}
+
+impl<'a> FetchDependency<Package> for NpmJs<'a> {
+    fn fetch_dependency(&self, package_name: &str) -> Result<Package> {
+        let url = Url::parse(&format!("https://registry.npmjs.org/{}", package_name))
+            .with_context(|| format!("Invalid URL for npm package '{}'.", package_name))?;
+        let mut package: Package = self
+            .client
+            .get(url)
+            .send()
+            .with_context(|| format!("NPM request for '{}' failed.", package_name))?
+            .json()
+            .with_context(|| format!("JSON deserialization for '{}' failed.", package_name))?;
+
+        // Horray! npm allows a package to have no name in it's metadata!
+        if package.name.is_empty() {
+            package.name = package_name.to_owned();
+        }
+        Ok(package)
+    }
 }

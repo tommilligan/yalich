@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 pub trait DependencyNames {
     fn dependency_names<'a>(&'a self) -> Box<dyn Iterator<Item = &'a str> + 'a>;
 
@@ -6,4 +8,8 @@ pub trait DependencyNames {
         names.sort();
         names
     }
+}
+
+pub trait FetchDependency<T> {
+    fn fetch_dependency(&self, dependency_name: &str) -> Result<T>;
 }
