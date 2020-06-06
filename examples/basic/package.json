@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "moment": "^2.15.1",
+    "mutation-observer": "^1.0.3",
+    "my-local-package": "../my-local-package"
+  }
+}

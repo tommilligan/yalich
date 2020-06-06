@@ -1,0 +1,6 @@
+category,name,url,license
+python,black,https://pypi.org/project/black/,MIT
+rust,chrono,https://crates.io/crates/chrono,MIT/Apache-2.0
+rust,once_cell,https://crates.io/crates/once_cell,MIT OR Apache-2.0
+node,moment,https://www.npmjs.com/package/moment,MIT
+node,mutation-observer,https://www.npmjs.com/package/mutation-observer,unknown

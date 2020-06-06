@@ -1,0 +1,18 @@
+user_agent = "yalich-basic-example"
+
+[languages.python]
+manifests = [
+  "examples/basic/pyproject.toml"
+]
+
+[languages.rust]
+manifests = [
+  "examples/basic/Cargo.toml"
+]
+
+[languages.node]
+manifests = [
+  "examples/basic/package.json"
+]
+[languages.node.overrides]
+"mutation-observer" = { license = "BSD" }
