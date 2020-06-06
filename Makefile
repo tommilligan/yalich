@@ -9,5 +9,5 @@ test:
 	cargo test --all --locked
 
 publish:
-	cargo login "$CARGO_LOGIN_TOKEN"
+	cargo login "${CARGO_LOGIN_TOKEN}"
 	cargo publish
