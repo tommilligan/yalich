@@ -18,12 +18,13 @@ cargo install yalich
 
 ## Design
 
-The support for licensing metadata across languages is spotty. Even withing languages with good support, packages often have a license but fail to tag it with the correct metadata.
+The support for licensing metadata across languages is spotty. Even within languages with good support, packages often have a license but fail to tag it with the correct metadata.
 
 To cover the majority of cases, `yalich` uses the following data flow:
 
 - Get dependency ids from a language-specific manifest file
 - Get metadata using an id from a language-specific API
 - Follow links in metadata to more data sources
+- Finally, apply user overrides for missing or incorrect data
 
 ![yalich data flow](./img/data-flow.png)
