@@ -3,6 +3,10 @@ name = "yalich"
 version = "0.1.0"
 authors = ["Tom Milligan <tommilligan@users.noreply.github.com>"]
 edition = "2018"
+description = "Yet another license checker."
+homepage = "https://github.com/tommilligan/yalich"
+license = "MIT"
+readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.31"
