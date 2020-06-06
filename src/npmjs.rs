@@ -7,7 +7,7 @@ use url::Url;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct LicenseDetails {
-    pub r#type: String,
+    r#type: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -18,10 +18,10 @@ pub enum License {
 }
 
 impl License {
-    pub fn to_license_name(self) -> String {
+    pub fn name(&self) -> &str {
         match self {
             License::Plain(string) => string,
-            License::Detailed(details) => details.r#type,
+            License::Detailed(details) => &details.r#type,
         }
     }
 }
@@ -34,10 +34,10 @@ pub enum OneOrMany {
 }
 
 impl OneOrMany {
-    pub fn into_license(self) -> Option<License> {
+    pub fn get_license(&self) -> Option<&License> {
         match self {
-            OneOrMany::One(one) => Some(one.to_owned()),
-            OneOrMany::Many(many) => many.get(0).map(|license| license.to_owned()),
+            OneOrMany::One(one) => Some(one),
+            OneOrMany::Many(many) => many.get(0),
         }
     }
 }
@@ -51,13 +51,13 @@ pub struct Version {
 }
 
 impl Version {
-    pub fn license(self) -> Option<License> {
-        let license = match (self.license, self.licenses) {
-            (Some(one_or_many), _) => one_or_many.into_license(),
-            (_, Some(one_or_many)) => one_or_many.into_license(),
-            _ => return None,
-        };
-        license
+    pub fn get_license(&self) -> Option<&License> {
+        for field in [&self.license, &self.licenses].iter() {
+            if let Some(one_or_many) = field {
+                return one_or_many.get_license();
+            }
+        }
+        None
     }
 }
 

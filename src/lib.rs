@@ -46,8 +46,8 @@ impl<'a> From<npmjs::Package> for Dependency<'a> {
         let name = package.name.clone();
         let version = package.latest_version().to_owned();
         let license = version
-            .license()
-            .map(|license| license.to_license_name())
+            .get_license()
+            .map(|license| license.name().to_owned())
             .unwrap_or_else(|| String::from("unknown"));
         Dependency {
             category: "node",
