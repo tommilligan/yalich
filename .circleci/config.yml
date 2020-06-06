@@ -26,6 +26,7 @@ jobs:
       - restore_cache:
           keys:
             - test-stable-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-v1
+      - run: make dev
       - run: make test
       - save_cache:
           <<: *cargo_cache_paths
