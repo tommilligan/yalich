@@ -54,7 +54,7 @@ fn load_packagejson(path: &PathBuf) -> Result<PackageJson> {
     load_json_file(path)
 }
 
-fn load_package_names<'a, T: DependencyNames>(
+fn load_package_names<T: DependencyNames>(
     manifest_paths: &[PathBuf],
     loader: impl Fn(&PathBuf) -> Result<T>,
 ) -> Result<Vec<String>> {
