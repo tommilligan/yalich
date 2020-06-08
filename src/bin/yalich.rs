@@ -4,7 +4,7 @@ use std::io::{self, Read};
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use log::{error, info};
+use log::{error, info, warn};
 use reqwest::blocking::ClientBuilder;
 use serde::de::DeserializeOwned;
 use structopt::StructOpt;
@@ -111,6 +111,12 @@ fn run() -> Result<()> {
 
     // Send final dependencies to writer
     for dependency in dependencies {
+        if dependency.license.is_none() {
+            warn!(
+                "Failed to find license for '{}' dependency: '{}'",
+                dependency.category, dependency.name
+            );
+        }
         writer
             .serialize(dependency)
             .with_context(|| "CSV serialization failed".to_owned())?;
@@ -121,7 +127,8 @@ fn run() -> Result<()> {
 }
 
 fn main() {
-    env_logger::init();
+    use env_logger::Env;
+    env_logger::from_env(Env::default().default_filter_or("yalich=warn")).init();
 
     if let Err(error) = run() {
         error!("{}", error)

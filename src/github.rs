@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use log::warn;
+use log::debug;
 use reqwest::blocking::Client;
 use serde_derive::Deserialize;
 use url::Url;
@@ -84,14 +84,18 @@ impl<'a> Enricher<'a> {
     }
 
     pub fn enrich(&self, mut dependency: Dependency) -> Result<Dependency> {
-        // Fallback to Github if PyPI doesn't have license
+        // If language doesn't have license
         if dependency.license.is_none() {
+            // And we have a homepage
             if let Some(homepage) = &dependency.homepage {
+                // And it's Github
                 if let Some((organisation, repo)) = homepage_to_repo(&homepage) {
-                    warn!("Falling back to Github for {}/{}", organisation, repo);
+                    debug!("Falling back to Github for {}/{}", organisation, repo);
                     let repo = self.github.repo(organisation, repo)?;
                     if let Some(repo_license) = repo.license {
-                        dependency.license = Some(repo_license.name)
+                        if repo_license.name != "Other" {
+                            dependency.license = Some(repo_license.name)
+                        }
                     }
                 }
             }
